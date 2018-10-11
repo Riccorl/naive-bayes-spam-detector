@@ -1,107 +1,76 @@
 import string
-from numpy import array
-from sklearn.model_selection import KFold
+
 import nltk
 from nltk.corpus import stopwords
 
+import eval_train
+import naive_bayes as bayes
+
 STOP_WORDS = set(stopwords.words('english'))
 vocab = set()
-dataset = []
-spam = []
-spam_dict = {}
-ham = []
-ham_dict = {}
+data = []
+counter_spam, counter_ham = 0, 0
+dict_spam, dict_ham = {}, {}
 
 
-def read_file(data_dir):
-    dataset = open(data_dir).readlines()
+def clean_text(text):
+    tokens = nltk.word_tokenize(text)
+    # convert to lower case
+    tokens = [w.lower() for w in tokens]
+    # remove punctuation from each word
+    table = str.maketrans('', '', string.punctuation)
+    stripped = [w.translate(table) for w in tokens]
+    # remove remaining tokens that are not alphabetic
+    words = [word for word in stripped if word.isalpha()]
+    # filter out stop words
+    return [w for w in words if w not in STOP_WORDS]
 
 
 def read_data(data_set):
+    global counter_spam, counter_ham
     for line in data_set:
-        (first_word, rest) = line.split(maxsplit=1)
-        if first_word == 'spam':
-            spam.append(clean_text(rest, spam_dict))
+        (answer, text) = line.split(maxsplit=1)
+        if answer == 'spam':
+            counter_spam = counter_spam = 1
         else:
-            ham.append(clean_text(rest, ham_dict))
-    return spam, ham
+            counter_ham = counter_ham + 1
+        data.append([answer, prepare_text(answer, text)])
+
+    return data
 
 
-def clean_text(text, words_dict):
-    """Clean text from stopwords and punctuation"""
-    text_words = nltk.word_tokenize(text)
-    # text_words = text_words.split()
-    result_words = [word for word in text_words if word not in STOP_WORDS and word not in string.punctuation]
-    for w in result_words:
-        vocab.add(w)
-        words_dict[w] = words_dict.get(w, 0) + 1
-
-    result = ' '.join(result_words)
-
-    return result
-
-
-def clean_new_instance(text):
-    voca_intance = set()
-    text_words = nltk.word_tokenize(text)
-    result_words = [word for word in text_words if word not in STOP_WORDS and word not in string.punctuation]
-    for w in result_words:
-        voca_intance.add(w)
-
-    return voca_intance
-
-
-def learn_naive_bayes_mu(data_size, data_documents, data_subset):
-    p_dis = {}
-    t_j = len(data_documents)
-    p_cj = t_j / data_size
-    tf_j = sum(data_subset.values())
-    for w in vocab:
-        tf_ij = data_subset.get(w, 0)
-        p_dis[w] = (tf_ij + 1) / (tf_j + data_size)
-
-    return p_cj, p_dis
-
-
-def classify_naive_bayes(words, p_j, p_dis):
-    v_nb = p_j
+def prepare_text(answer, text):
+    words = clean_text(text)
     for w in words:
-        v_nb = v_nb * p_dis[w]
-    return v_nb
+        vocab.add(w)
+        if answer == 'spam':
+            dict_spam[w] = dict_spam.get(w, 0) + 1
+        else:
+            dict_ham[w] = dict_ham.get(w, 0) + 1
+
+    return ' '.join(words)
 
 
-def classify_kfold(test, errors, p_spam, p_dis_spam, p_ham, p_dis_ham):
-    for text in test:
-        c = classify_spam(text, p_spam, p_dis_spam, p_ham, p_dis_ham)
-    pass
+def prepare_new_instance(text):
+    vocab_intance = set()
+    words = clean_text(text)
+    for w in words:
+        vocab_intance.add(w)
+
+    return vocab_intance
 
 
-def test_kfold(data):
-    k = 0
-    j = -1
-    errors = []
-    while k < 100:
-        train = data[k:j]
-        test = list(set(data) - set(train))
-        (p_spam, p_dis_spam, p_ham, p_dis_ham) = learn_spam(train)
-        classify_kfold(test, errors, p_spam, p_dis_spam, p_ham, p_dis_ham)
-        k = k + 1
-        j = j + 1
-
-    return 1 - (sum(errors) / 100)
-
-
-def learn_spam(data_set):
-    (p_spam, p_dis_spam) = learn_naive_bayes_mu(len(spam) + len(ham), spam, spam_dict)
-    (p_ham, p_dis_ham) = learn_naive_bayes_mu(len(spam) + len(ham), ham, ham_dict)
+def learn_spam(vocab, data_set):
+    (p_spam, p_dis_spam) = bayes.learn_naive_bayes_mu(vocab, data_set, counter_spam, dict_spam)
+    (p_ham, p_dis_ham) = bayes.learn_naive_bayes_mu(vocab, data_set, counter_ham, dict_ham)
     return p_spam, p_dis_spam, p_ham, p_dis_ham
 
 
 def classify_spam(text, p_spam, p_dis_spam, p_ham, p_dis_ham):
-    words_text = clean_new_instance(text)
+    words_text = prepare_new_instance(text)
     words_text.intersection_update(vocab)
-    c_spam = classify_naive_bayes(words_text, p_spam, p_dis_spam)
-    c_ham = classify_naive_bayes(words_text, p_ham, p_dis_ham)
+    c_spam = bayes.classify_naive_bayes(words_text, p_spam, p_dis_spam)
+    c_ham = bayes.classify_naive_bayes(words_text, p_ham, p_dis_ham)
     if c_spam > c_ham:
         return 'spam'
     else:
@@ -109,9 +78,11 @@ def classify_spam(text, p_spam, p_dis_spam, p_ham, p_dis_ham):
 
 
 def main():
-    read_data('dataset/full_dataset')
-    accuracy = test_kfold(dataset)
-    print()
+    file = open('dataset/full_dataset').readlines()
+    data_set = read_data(file)
+    accuracy, precision, recall, f_score = eval_train.test_kfold(vocab, data_set, 100)
+    print('Accuracy: %f \nPrecision: %f\nRecall: %f\nF-score: %f \n'
+          % (accuracy, precision, recall, f_score))
     # (p_spam, p_dis_spam, p_ham, p_dis_ham) = learn_spam()
     # print(classify_spam(text, p_spam, p_dis_spam, p_ham, p_dis_ham))
 
