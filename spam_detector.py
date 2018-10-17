@@ -61,8 +61,8 @@ def prepare_new_instance(text):
 
 
 def learn_spam(vocab, data_set):
-    (p_spam, p_dis_spam) = bayes.learn_naive_bayes_mu(vocab, data_set, counter_spam, dict_spam)
-    (p_ham, p_dis_ham) = bayes.learn_naive_bayes_mu(vocab, data_set, counter_ham, dict_ham)
+    (p_spam, p_dis_spam) = bayes.learn_multinomial(vocab, data_set, counter_spam, dict_spam)
+    (p_ham, p_dis_ham) = bayes.learn_multinomial(vocab, data_set, counter_ham, dict_ham)
     return p_spam, p_dis_spam, p_ham, p_dis_ham
 
 
@@ -80,7 +80,7 @@ def classify_spam(text, p_spam, p_dis_spam, p_ham, p_dis_ham):
 def main():
     file = open('dataset/full_dataset').readlines()
     data_set = read_data(file)
-    accuracy, precision, recall, f_score = eval_train.test_kfold(vocab, data_set, 100)
+    accuracy, precision, recall, f_score = eval_train.test_kfold(vocab, data_set, 10)
     print('Accuracy: %f \nPrecision: %f\nRecall: %f\nF-score: %f \n'
           % (accuracy, precision, recall, f_score))
     # (p_spam, p_dis_spam, p_ham, p_dis_ham) = learn_spam()

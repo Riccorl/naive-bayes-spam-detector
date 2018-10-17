@@ -1,4 +1,4 @@
-def learn_naive_bayes_mu(vocab, data, docs_size, dict_class):
+def learn_multinomial(vocab, data, docs_size, dict_class):
     p_dis = {}
     t_j = docs_size
     p_cj = t_j / len(data)

@@ -39,7 +39,7 @@ def test_kfold(vocab, data, k):
         (p_spam, p_dis_spam, p_ham, p_dis_ham) = sd.learn_spam(vocab, train)
         (error, t_p, t_n, f_p, f_n) = classify_kfold(test, p_spam, p_dis_spam, p_ham, p_dis_ham)
         errors.append(error)
-        print('test %d, error: %f' % (i, error))
+        print('test %d, error: %f' % (i + 1, error))
         i = i + 1
 
     accuracy = 1 - (sum(errors) / k)
